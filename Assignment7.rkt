@@ -223,7 +223,7 @@
 
 ;;lb->imgae:LegoBldg-> Image
 ;;takes a lego building and prodecus an image of the building
-#|(check-expect (lb->imgae
+(check-expect (lb->imgae
                (make-bigger (make-lego 4 'purple 80)
                             (make-bigger (make-lego 2 'blue 60)
                                          (make-lego 1 'yellow 40)
@@ -251,13 +251,38 @@
                                    (above (rectangle 60 10 'solid 'blue)
                                            (beside/align "baseline"(rectangle 40 10 'solid 'yellow)
                                                        (rectangle 40 10 'solid 'red)))
-                                   (rectangle 60 10 'solid 'orange))))|#
-
-
-
- (above (rectangle 80 10 'solid 'purple)
-                     (beside/align "baseline"
+                                   (rectangle 60 10 'solid 'orange))))(check-expect (lb->image (make-bigger (make-lego 4 'purple 80)
+                                      (make-lego 6 'orange 60)
+                         (make-bigger (make-lego 2 'blue 60)
+                                      (make-lego 1 'yellow 40)
+                                      (make-lego 3 'red 40))))
+                         
+             (check-expect (lb->image (make-bigger (make-lego 4 'purple 80)
+                                      (make-lego 6 'orange 60)
+                         (make-bigger (make-lego 2 'blue 60)
+                                      (make-lego 1 'yellow 40)
+                                      (make-lego 3 'red 40))))
+                         
+              (above (rectangle 80 10 'solid 'purple)
+                     (beside/align "bottom"
+                                   (rectangle 60 10 'solid 'orange)
                                    (above (rectangle 60 10 'solid 'blue)
                                            (beside/align "baseline"(rectangle 40 10 'solid 'yellow)
-                                                       (rectangle 40 10 'solid 'red)))
-                                   (rectangle 60 10 'solid 'orange)))
+                                                       (rectangle 40 10 'solid 'red))))))
+ (define (lb->image abigger)
+  (cond
+    [(lego? abigger) (rectangle (lego-width abigger) 10 'solid (lego-color abigger))]
+    [else (above (rectangle (lego-width (bigger-lego abigger)) 10 'solid (lego-color (bigger-lego abigger)))
+                 (beside/align (y-pisition? (bigger-left abigger)(bigger-right abigger))
+                               (lb->image (bigger-left abigger))
+                               (lb->image (bigger-right abigger))))]))
+
+
+;;y-place?:LegoBldg LegoBldg -> String
+;;determins what position the image of the second LegoBldg should be put beside the image of the first LegoBldg at y position
+(define (y-pisition? l1 l2)
+  (cond [(> (how-high l1) (how-high l2)) "top"]
+        [(< (how-high l1) (how-high l2)) "bottom"]
+        [(= (how-high l1) (how-high l2)) "baseline"]))
+
+
