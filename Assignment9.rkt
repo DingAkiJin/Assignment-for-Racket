@@ -126,28 +126,99 @@
          (first alist)
          (last (rest alist)))]))
 
-;;find-st-path: Graph Node Node -> [Maybe Path]
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;find-st-path
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;find-st-path:Graph Node Node -> [Maybe Path]
 ;;consumes a graph g, a start node s and an end node t and returns a path p
-;;that starts at  s and ends at t in the graph g.
+;;that starts at  s and ends at t in the graph g. if s = t, returns a empty list
 ;;The function should return false if there is no such path.
 ;;[Maybe Path] is one of:
-;;-Path;
+;;-[List-of Edge];
 ;;-#false;
-(check-expect (find-st-path g1 'A 'C)(list (list 'A 10 'B)
-                                           (list 'B 5 'C)))
 
+(check-expect (find-st-path g1 'D 'B) #false)
+(check-expect (find-st-path g1 'A 'A) '())
+
+(check-expect (find-st-path g1 'A 'C)
+              (list (list 'A 10 'B)
+                 (list 'B 5 'C)))
+
+(check-expect (find-st-path g1 'A 'D) 
+               (list (list 'A 10 'B)
+                (list 'B 5 'C)
+                (list 'C 10 'D)))
+(check-expect (find-st-path g1 'E 'D) #false)
 (define (find-st-path g s t)
   (cond
-    [(symbol=? s t)'()]
+    [(or (not-in-graph? g s) (not-in-graph? g t)) #false]
     [else
-         (cond
-           [(boolean? (find-path/list g (neighbors s g) t ))#false]
-            ;;[else(cons s (find-path/list g (neighbors s g) t ))])]))
-            [else
-              (if(boolean? (find-st-path g (first (neighbors s g)) t ))
-                (find-path/list g (rest (neighbors s g)) t)
-                (cons (first(find-edge g s (first (neighbors s g))))
-                      (find-path/list g (rest (neighbors s g)) t)))])]))
+  (if (boolean?(find-path-acc g s t empty))
+      #false
+  (find-edges g (find-path-acc g s t empty)))]))
+
+;;not-in-graph? Graph Node -> Boolean
+;;returns true if a node is in a given graph, false otherwise
+
+
+(check-expect (not-in-graph? g1 'E) #true)
+(check-expect (not-in-graph? g1 'A) #false)
+(check-expect (not-in-graph? empty 'A ) #true)
+(define (not-in-graph? g anode)
+  (andmap (λ(x) (and (not (symbol=? (first x) anode))
+                     (not(symbol=? (third x) anode)))) g))
+                    
+;;find-path-acc: Graph Node Node [List-of Node] ->  [Maybe [List-of Node]]
+;;consumes a graph g, a start node s and an end node t and a list of nodes
+;;returns a list of nodes that starts at  s and ends at t in the graph g. 
+;;The function should return false if there is no such path.
+;; assuming s t are nodes in the graph  
+(check-expect (find-path-acc g1 'D 'B '()) #false)
+(check-expect (find-path-acc g1 'A 'A '()) '(A))
+(check-expect (find-path-acc g1 'A 'C '())
+              (list 'A 'B 'C))
+
+(check-expect (find-path-acc g1 'A 'D '()) 
+               (list 'A 'B 'C 'D))
+           
+(define (find-path-acc g s t seen-so-far)
+  (cond [(symbol=? s t) (list t)]
+        [(member?  s seen-so-far) #false]
+        [else
+         (if(boolean?(find-path/list g (neighbors g s) t (cons s seen-so-far)))
+          (find-path/list g (neighbors g s) t (cons s seen-so-far))
+          (cons s (find-path/list g (neighbors g s) t (cons s seen-so-far))))]))
+
+;;Graph [List-of Node] Node [List-of Node]->[Maybe [List-of Node]]
+;;consumes a graph g, a list of nodes(next-nodes) and an end node t
+;;and a list of nodes,returns a list of nodes that starts at one of next-nodes
+;;and ends at t in the graph g. 
+;;The function should return false if there is no such path.
+;;assuming next-nodes t are nodes in the graph
+(check-expect (find-path/list g1 empty 'D '()) #false)
+(check-expect (find-path/list g1 '(A D) 'D '()) '(A B C D))
+(check-expect (find-path/list g1 '(B) 'D '()) '(B C D))
+
+
+(define (find-path/list g next-nodes t seen-so-far)
+  (cond [(empty? next-nodes) #false]
+        [else (if (boolean? (find-path-acc g (first next-nodes) t seen-so-far))
+                  (find-path/list g (rest next-nodes) t seen-so-far)
+                  (find-path-acc g (first next-nodes) t seen-so-far))]))
+
+;;neighbors: Node Graph -> [List-of Node]
+;;finds all nodes that a given node in a graph has an edge with
+(check-expect (neighbors g1 'A) '(B))
+(check-expect (neighbors g1 'C) '(A D))
+(check-expect (neighbors g1 'D) '())
+(define (neighbors g node)
+  (foldr (λ(x y) (if (symbol=? (first x) node)
+                     (cons  (third x) y)
+                      y)) '() g))
+
+
 ;;find-edge: Graph Node Node -> Edge
 ;;finds the edge of two different nodes in a graph,
 ;;assuming the edge always exists
@@ -155,29 +226,81 @@
 (check-expect (find-edge g1 'C 'A) (list(list 'C 10 'A)))
 (check-expect (find-edge g1 'B 'D) '())
 (define (find-edge g s t)
+  ;;[Edge -> Boolen] [List-of Edge] -> [List-of Edge]
   (filter (λ(x) (and(symbol=? (first x) s)(symbol=? (third x) t))) g))
 
+;;find-edges: Graph [List-of Node] -> [List-of Edge]
+;;finds the edges in a graph given a list of nodes
 
+(check-expect (find-edges g1 '()) #false)
+(check-expect (find-edges g1 '(A)) '())
+(check-expect (find-edges g1 '(A B C))
+              (list (list 'A 10 'B)
+                    (list 'B 5 'C)))
 
- 
-;find-path/list: Graph [List-of Node] Node  -> [Maybe Path]
-; finds a path from some node on neigbors to the destination
-; if there is no path, the function produces #false
-(define (find-path/list g alon t)
+(define (find-edges g alon)
   (cond
     [(empty? alon) #false]
-    [else (cond
-              [(boolean? (find-st-path g (first alon) t))
-               (find-path/list g (rest alon) t )]
-              [else(find-st-path g (first alon) t)])]))
+    [(empty? (rest alon)) '()]
+    [else (append (find-edge g (first alon) (first (rest alon)))
+                (find-edges g (rest alon)))]))
 
-;;neighbors: Node Graph -> [List-of Node]
-;;finds all nodes that a given node in a graph has an edge with
-(check-expect (neighbors 'A g1) '(B))
-(check-expect (neighbors 'C g1) '(A D))
-(check-expect (neighbors 'D g1) '())
-(define (neighbors node g)
-  (foldr (λ(x y) (if (symbol=? (first x) node)
-                     (cons  (third x) y)
-                      y)) '() g))
- 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;test
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+#|(define g2 (list (list 'A 10 'B)
+                 (list 'B 5 'C)
+                 (list 'C 10 'A)
+                 (list 'A 10 'C)
+                 (list 'C 10 'D)))
+(define (find-paths origination destination G)
+  (local (define (find-paths-ac orig seen)
+            (cond
+              [(symbol=? orig destination) (list (list destination))]
+              [(member orig seen)#false]   ; you can also return an error here. 
+              [else (local[ 
+                     
+                       (define candidate 
+                         (find-paths/list (neighbors g orig) (cons orig seen)))]
+                      (join orig candidate))]))
+
+          (define (find-paths/list lo-Os seen)  
+            (cond [(empty? lo-Os) #false]
+                  [else (local ((define candidate (find-paths-ac (first lo-Os) seen)))
+                          (cond [(empty? candidate) (find-paths/list (rest lo-Os) seen)]
+                                [else 
+                                  (append candidate
+                                    (find-paths/list (rest lo-Os) seen))]))]))) 
+    (find-paths-ac origination empty))|#
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define g2 (list (list 'A 10 'B)
+                 (list 'B 5 'C)
+                 (list 'C 10 'A)
+                 (list 'A 10 'C)
+                 (list 'C 10 'D)))
+;;(check-expect (find-all-path g2 'A 'C '()) (list (list 'A 'B 'C)
+                                                 ;;(list 'A 'C)))
+(check-expect (find-all-path g2 'B 'C '()) (list (list 'B 'C)))
+
+(define (find-all-path g s t seen-so-far)
+  (cond [(symbol=? s t) (list t)]
+        [(member?  s seen-so-far) #false]
+        [else
+         (if(boolean?(find-all-path/list g (neighbors g s) t (cons s seen-so-far)))
+          (find-all-path/list g (neighbors g s) t (cons s seen-so-far))
+          (cons s (find-all-path/list g (neighbors g s) t (cons s seen-so-far))))]))
+
+
+
+
+(define (find-all-path/list g next-nodes t seen-so-far)
+  (cond [(empty? next-nodes) '()]
+        [else (if (boolean? (find-all-path g (first next-nodes) t seen-so-far))
+                  (find-all-path/list g (rest next-nodes) t seen-so-far)
+                  (append
+                   (find-all-path g (first next-nodes) t seen-so-far)
+                   (find-all-path/list g (rest next-nodes) t seen-so-far)))]))
